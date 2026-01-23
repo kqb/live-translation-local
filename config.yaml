@@ -1,0 +1,23 @@
+audio:
+  device: null        # null = default mic, or specify device index/name
+  sample_rate: 16000  # 16kHz for Whisper
+  chunk_duration: 3.0 # seconds per audio chunk
+
+whisper:
+  model: "base"       # tiny, base, small, medium, large-v2, large-v3
+  device: "auto"      # cpu, cuda, auto
+  compute_type: "int8" # int8, float16, float32
+  language: null      # null = auto-detect, or specify language code (en, es, fr, etc.)
+
+translation:
+  enabled: true
+  source_lang: null   # null = auto from whisper detection
+  target_lang: "es"   # target language code (es, fr, de, ja, zh, etc.)
+
+output:
+  text_file: "./subtitles.txt"  # Path for OBS Text (GDI+) source
+  websocket_enabled: true
+  websocket_port: 8765
+  http_port: 8766
+  max_lines: 2        # Maximum lines to display
+  clear_after: 5.0    # Clear subtitles after N seconds of silence
