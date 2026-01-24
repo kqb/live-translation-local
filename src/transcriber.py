@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Optional
 
@@ -21,6 +22,28 @@ WHISPER_MODELS = [
     "medium.en",
     "large-v2",
     "large-v3",
+]
+
+# Common hallucination phrases to filter out
+HALLUCINATION_PATTERNS = [
+    "thank you for watching",
+    "thanks for watching",
+    "thank you",
+    "subscribe",
+    "like and subscribe",
+    "please subscribe",
+    "♪",
+    "music",
+    "[music]",
+    "(music)",
+    "(keyboard clicking)",
+    "(keyboard tapping)",
+    "(typing)",
+    "(mouse clicking)",
+    "(silence)",
+    "(background noise)",
+    ".",
+    "...",
 ]
 
 # Language code mapping (ISO 639-1 to Whisper language names)
@@ -66,6 +89,9 @@ class TranscriberConfig:
     device: str = "auto"  # cpu, cuda, auto
     compute_type: str = "int8"  # int8, float16, float32
     language: Optional[str] = None  # None = auto-detect
+    no_speech_threshold: float = 0.6  # Probability threshold for speech detection
+    logprob_threshold: float = -1.0  # Log probability threshold for filtering
+    compression_ratio_threshold: float = 2.4  # Compression ratio threshold
 
 
 @dataclass
@@ -151,11 +177,10 @@ class Transcriber:
         # Determine language setting
         lang = language or self.config.language
 
-        # Map simple code to Whisper language name if needed
-        if lang and lang in LANGUAGE_CODES:
-            lang = LANGUAGE_CODES[lang]
+        # faster-whisper uses ISO codes (en, es, fr) directly, not full names
+        # No need to convert language codes
 
-        # Transcribe with VAD filter for better segmentation
+        # Transcribe with VAD filter and hallucination prevention
         segments, info = model.transcribe(
             audio,
             language=lang,
@@ -164,6 +189,10 @@ class Transcriber:
                 min_silence_duration_ms=500,
                 speech_pad_ms=200,
             ),
+            condition_on_previous_text=False,  # Prevent context hallucinations
+            no_speech_threshold=self.config.no_speech_threshold,
+            log_prob_threshold=self.config.logprob_threshold,
+            compression_ratio_threshold=self.config.compression_ratio_threshold,
         )
 
         # Collect segments
@@ -181,7 +210,12 @@ class Transcriber:
             text_parts.append(segment.text.strip())
 
         # Combine text
-        full_text = " ".join(text_parts)
+        full_text = " ".join(text_parts).strip()
+
+        # Filter hallucinations
+        if self._is_hallucination(full_text):
+            full_text = ""
+            segment_list = []
 
         return TranscriptionResult(
             text=full_text,
@@ -189,6 +223,42 @@ class Transcriber:
             confidence=info.language_probability,
             segments=segment_list,
         )
+
+    def _is_hallucination(self, text: str) -> bool:
+        """Check if text appears to be a hallucination.
+
+        Args:
+            text: Transcribed text to check.
+
+        Returns:
+            True if text is likely a hallucination.
+        """
+        if not text or len(text.strip()) == 0:
+            return True
+
+        text_lower = text.lower().strip()
+
+        # Check for common hallucination patterns
+        for pattern in HALLUCINATION_PATTERNS:
+            if text_lower == pattern or text_lower.startswith(pattern):
+                return True
+
+        # Check if text consists only of parenthetical sound descriptions
+        # Remove all parenthetical content and check if anything meaningful remains
+        without_parens = re.sub(r'\([^)]*\)', '', text_lower).strip()
+        if not without_parens or len(without_parens) < 3:
+            return True
+
+        # Check for very short transcriptions (often hallucinations)
+        if len(text_lower) < 3:
+            return True
+
+        # Check for repetitive patterns (compression ratio already handles this)
+        words = text_lower.split()
+        if len(words) > 1 and len(set(words)) == 1:
+            return True
+
+        return False
 
     def detect_language(self, audio: np.ndarray) -> tuple[str, float]:
         """Detect the language of audio.

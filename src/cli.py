@@ -60,6 +60,13 @@ def cli() -> None:
     is_flag=True,
     help="Disable translation (transcription only)",
 )
+@click.option(
+    "-b",
+    "--backend",
+    type=click.Choice(["whisper-cpp", "faster-whisper"]),
+    default="whisper-cpp",
+    help="Whisper backend (default: whisper-cpp for Apple Silicon)",
+)
 def run(
     config_path: Optional[Path],
     model: Optional[str],
@@ -67,6 +74,7 @@ def run(
     target_lang: Optional[str],
     device: Optional[int],
     no_translate: bool,
+    backend: str,
 ) -> None:
     """Start the live translator.
 
@@ -104,10 +112,13 @@ def run(
         config.audio.device = device
     if no_translate:
         config.translator.enabled = False
+    if backend:
+        config.backend = backend
 
     # Display configuration
     console.print()
     console.print("[bold]Configuration:[/bold]")
+    console.print(f"  Backend: {config.backend}")
     console.print(f"  Whisper model: {config.transcriber.model}")
     console.print(f"  Source language: {config.transcriber.language or 'auto-detect'}")
     console.print(f"  Target language: {config.translator.target_lang}")
@@ -360,6 +371,11 @@ whisper:
   compute_type: "int8" # int8, float16, float32
   language: null      # null = auto-detect, or specify language code (en, es, fr, etc.)
 
+  # Anti-hallucination settings
+  no_speech_threshold: 0.6  # Higher = more aggressive filtering (0.0-1.0)
+  logprob_threshold: -1.0   # Higher = filter low-confidence text
+  compression_ratio_threshold: 2.4  # Lower = filter repetitive text
+
 translation:
   enabled: true
   source_lang: null   # null = auto from whisper detection
@@ -370,8 +386,12 @@ output:
   websocket_enabled: true
   websocket_port: 8765
   http_port: 8766
-  max_lines: 2        # Maximum lines to display
-  clear_after: 5.0    # Clear subtitles after N seconds of silence
+  max_lines: 2        # Maximum lines to display (legacy mode)
+  clear_after: 5.0    # Clear subtitles after N seconds of silence (legacy mode)
+
+  # YouTube-style scrolling subtitles
+  scrolling_mode: true  # Enable continuous scrolling subtitles
+  history_lines: 10     # Number of subtitle lines to keep visible
 """
     console.print(default_config)
     console.print()

@@ -1,0 +1,42 @@
+# Optimized Configuration for M4 Max Mac (36GB RAM)
+# This configuration uses the highest quality models that will run smoothly
+
+audio:
+  device: null        # null = default mic (picks up audio from speakers)
+  sample_rate: 16000  # 16kHz for Whisper
+  chunk_duration: 3.0 # 3 seconds for better accuracy with large model
+
+whisper:
+  model: "medium"     # Medium model with whisper.cpp (1.5GB GGML) - faster than large-v3
+  device: "cpu"       # Apple Silicon uses CPU (no CUDA)
+  compute_type: "int8" # int8 is optimal for CPU inference on Apple Silicon
+  language: null      # null = auto-detect (supports Japanese + English hybrid)
+
+translation:
+  enabled: true
+  source_lang: null   # null = auto from whisper detection
+  target_lang: "ja"   # Japanese
+  device: "cpu"       # Apple Silicon CPU
+  compute_type: "int8" # int8 provides best speed/quality on Apple Silicon
+  glossary_path: "./glossary.yaml"  # Unified 2A yo-yo + tech terminology
+
+output:
+  text_file: "./subtitles.txt"
+  websocket_enabled: true
+  websocket_port: 8765
+  http_port: 8766
+  max_lines: 2
+  clear_after: 5.0
+  verbose: true  # Show detailed diagnostic messages
+
+# Performance Tuning:
+# - Current: "medium" model with whisper.cpp (1.5GB GGML) - good balance of speed and accuracy
+# - For highest accuracy: "large-v3" (3GB) - slower but more accurate
+# - For fastest speed: "small" (244MB) - faster but less accurate
+# - Translation: Strictly English → Japanese only
+#   * English input → Japanese translation
+#   * Japanese input → No translation (passthrough)
+# - Hybrid buffering: Shows transcription immediately, translation when sentence completes
+# - Language filtering: Non-English/Japanese audio is skipped automatically
+# - Chunk duration: 3.0s provides good context for accurate transcription
+# - Glossary: Edit glossary.yaml to add your own technical terms and specialized vocabulary

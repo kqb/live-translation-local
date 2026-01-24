@@ -25,15 +25,17 @@ class OutputConfig:
     http_port: int = 8766
     max_lines: int = 2
     clear_after: float = 5.0  # seconds
+    scrolling_mode: bool = True  # YouTube-style scrolling subtitles
+    history_lines: int = 10  # Number of historical lines to keep visible
 
 
-# HTML template for browser source overlay
+# HTML template for browser source overlay with webcam
 HTML_OVERLAY = """<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live Translation Overlay</title>
+    <title>Live Translation with Webcam</title>
     <style>
         * {
             margin: 0;
@@ -42,23 +44,54 @@ HTML_OVERLAY = """<!DOCTYPE html>
         }
 
         body {
-            background: transparent;
-            font-family: 'Segoe UI', 'Arial', sans-serif;
+            background: #000;
+            font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Noto Sans JP', 'Meiryo', 'MS Gothic', sans-serif;
             overflow: hidden;
             width: 100vw;
             height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-end;
-            align-items: center;
-            padding-bottom: 50px;
+            position: relative;
+        }
+
+        #video-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background: #000;
+        }
+
+        #webcam {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        #error-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            text-align: center;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 8px;
+            display: none;
+        }
+
+        #error-message.visible {
+            display: block;
         }
 
         #subtitle-container {
+            position: absolute;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
             max-width: 90%;
             text-align: center;
             opacity: 0;
             transition: opacity 0.3s ease-in-out;
+            z-index: 10;
         }
 
         #subtitle-container.visible {
@@ -67,21 +100,21 @@ HTML_OVERLAY = """<!DOCTYPE html>
 
         .original-text {
             color: white;
-            font-size: 32px;
-            font-weight: 500;
+            font-size: 28px;
+            font-weight: 400;
             text-shadow:
                 2px 2px 4px rgba(0, 0, 0, 0.8),
                 -1px -1px 2px rgba(0, 0, 0, 0.6),
                 1px -1px 2px rgba(0, 0, 0, 0.6),
                 -1px 1px 2px rgba(0, 0, 0, 0.6);
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             line-height: 1.4;
         }
 
         .translated-text {
             color: #87CEEB;
-            font-size: 28px;
-            font-weight: 400;
+            font-size: 32px;
+            font-weight: 500;
             font-style: italic;
             text-shadow:
                 2px 2px 4px rgba(0, 0, 0, 0.8),
@@ -108,15 +141,47 @@ HTML_OVERLAY = """<!DOCTYPE html>
             from { opacity: 0; }
             to { opacity: 1; }
         }
+
+        /* Scrolling subtitle styles */
+        .subtitle-block {
+            margin-bottom: 16px;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        .subtitle-block.slide-up {
+            animation: slideUp 0.4s ease-out forwards;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
     </style>
 </head>
 <body>
+    <div id="video-container">
+        <video id="webcam" autoplay playsinline></video>
+        <div id="error-message">
+            <h2>Camera Access Required</h2>
+            <p>Please allow camera access to continue.</p>
+        </div>
+    </div>
+
     <div id="subtitle-container">
         <div class="original-text" id="original"></div>
         <div class="translated-text" id="translated"></div>
     </div>
 
     <script>
+        const videoEl = document.getElementById('webcam');
+        const errorEl = document.getElementById('error-message');
         const container = document.getElementById('subtitle-container');
         const originalEl = document.getElementById('original');
         const translatedEl = document.getElementById('translated');
@@ -125,7 +190,25 @@ HTML_OVERLAY = """<!DOCTYPE html>
         let reconnectTimer = null;
         let clearTimer = null;
         const RECONNECT_INTERVAL = 2000;
-        const CLEAR_TIMEOUT = 5000;
+
+        // Initialize webcam
+        async function initWebcam() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 },
+                        facingMode: 'user'
+                    },
+                    audio: false
+                });
+                videoEl.srcObject = stream;
+                errorEl.classList.remove('visible');
+            } catch (err) {
+                console.error('Error accessing webcam:', err);
+                errorEl.classList.add('visible');
+            }
+        }
 
         function connect() {
             const wsPort = window.location.port ?
@@ -178,7 +261,11 @@ HTML_OVERLAY = """<!DOCTYPE html>
                 clearTimer = null;
             }
 
-            if (data.type === 'subtitle') {
+            if (data.type === 'scrolling_subtitle') {
+                // YouTube-style scrolling subtitles
+                updateScrollingSubtitles(data.history || []);
+            } else if (data.type === 'subtitle') {
+                // Original fade in/out behavior
                 originalEl.textContent = data.original || '';
                 translatedEl.textContent = data.translated || '';
 
@@ -197,6 +284,38 @@ HTML_OVERLAY = """<!DOCTYPE html>
             }
         }
 
+        function updateScrollingSubtitles(history) {
+            // Clear existing subtitles safely
+            while (container.firstChild) {
+                container.removeChild(container.firstChild);
+            }
+
+            // Add each history entry
+            history.forEach(function(entry, index) {
+                const subtitleBlock = document.createElement('div');
+                subtitleBlock.className = 'subtitle-block slide-up';
+                subtitleBlock.style.animationDelay = (index * 0.05) + 's';
+
+                if (entry.original) {
+                    const origDiv = document.createElement('div');
+                    origDiv.className = 'original-text';
+                    origDiv.textContent = entry.original;
+                    subtitleBlock.appendChild(origDiv);
+                }
+
+                if (entry.translated) {
+                    const transDiv = document.createElement('div');
+                    transDiv.className = 'translated-text';
+                    transDiv.textContent = entry.translated;
+                    subtitleBlock.appendChild(transDiv);
+                }
+
+                container.appendChild(subtitleBlock);
+            });
+
+            container.classList.add('visible');
+        }
+
         function clearSubtitles() {
             container.classList.remove('fade-in');
             container.classList.add('fade-out');
@@ -208,7 +327,8 @@ HTML_OVERLAY = """<!DOCTYPE html>
             }, 500);
         }
 
-        // Initial connection
+        // Initialize on load
+        initWebcam();
         connect();
     </script>
 </body>
@@ -255,7 +375,35 @@ class OBSOutput:
             translated: Translated text.
         """
         try:
-            content = f"{original}\n{translated}" if translated else original
+            # Write both original and translated for hybrid input
+            if translated:
+                content = f"{original}\n{translated}"
+            else:
+                content = original
+            self._text_file.write_text(content, encoding="utf-8")
+        except Exception:
+            pass  # Don't crash on file write errors
+
+    def _write_scrolling_text_file(self) -> None:
+        """Write scrolling subtitle history to text file.
+
+        For scrolling mode, only write the most recent entry to keep
+        the text file clean for OBS Text (GDI+) sources.
+        The browser overlay will show the full scrolling history.
+        """
+        try:
+            if not self._subtitle_history:
+                self._text_file.write_text("", encoding="utf-8")
+                return
+
+            # Get most recent entry
+            latest = self._subtitle_history[-1]
+
+            if latest["translated"]:
+                content = f"{latest['original']}\n{latest['translated']}"
+            else:
+                content = latest["original"]
+
             self._text_file.write_text(content, encoding="utf-8")
         except Exception:
             pass  # Don't crash on file write errors
@@ -401,32 +549,66 @@ class OBSOutput:
         """
         self._last_update_time = time.time()
 
-        # Write to text file
-        self._write_text_file(original, translated)
-
-        # Broadcast to WebSocket clients
-        if self.config.websocket_enabled and self._loop is not None:
-            message = {
-                "type": "subtitle",
+        if self.config.scrolling_mode:
+            # Add to history
+            self._subtitle_history.append({
                 "original": original,
                 "translated": translated,
-                "clearAfter": self.config.clear_after,
-            }
+                "timestamp": time.time(),
+            })
 
-            # Schedule broadcast on the event loop
-            try:
-                asyncio.run_coroutine_threadsafe(
-                    self._broadcast_message(message),
-                    self._loop,
-                )
-            except Exception:
-                pass
+            # Keep only recent history
+            max_history = self.config.history_lines
+            if len(self._subtitle_history) > max_history:
+                self._subtitle_history = self._subtitle_history[-max_history:]
+
+            # Write all history to text file
+            self._write_scrolling_text_file()
+
+            # Broadcast history to WebSocket clients
+            if self.config.websocket_enabled and self._loop and not self._loop.is_closed():
+                message = {
+                    "type": "scrolling_subtitle",
+                    "history": self._subtitle_history,
+                    "scrolling": True,
+                }
+
+                try:
+                    asyncio.run_coroutine_threadsafe(
+                        self._broadcast_message(message),
+                        self._loop,
+                    )
+                except Exception:
+                    pass
+        else:
+            # Original behavior: replace subtitles
+            self._write_text_file(original, translated)
+
+            # Broadcast to WebSocket clients
+            if self.config.websocket_enabled and self._loop is not None:
+                message = {
+                    "type": "subtitle",
+                    "original": original,
+                    "translated": translated,
+                    "clearAfter": self.config.clear_after,
+                }
+
+                # Schedule broadcast on the event loop
+                if self._loop and not self._loop.is_closed():
+                    try:
+                        asyncio.run_coroutine_threadsafe(
+                            self._broadcast_message(message),
+                            self._loop,
+                        )
+                    except Exception:
+                        pass
 
     def clear(self) -> None:
         """Clear the subtitles."""
+        self._subtitle_history.clear()
         self._write_text_file("", "")
 
-        if self.config.websocket_enabled and self._loop is not None:
+        if self.config.websocket_enabled and self._loop and not self._loop.is_closed():
             message = {"type": "clear"}
 
             try:

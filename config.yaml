@@ -3,21 +3,34 @@ audio:
   sample_rate: 16000  # 16kHz for Whisper
   chunk_duration: 3.0 # seconds per audio chunk
 
+# Backend: "whisper-cpp" (default, best for Apple Silicon) or "faster-whisper" (best for CUDA)
+# Override with: live-translator run --backend faster-whisper
+
 whisper:
-  model: "base"       # tiny, base, small, medium, large-v2, large-v3
-  device: "auto"      # cpu, cuda, auto
-  compute_type: "int8" # int8, float16, float32
+  model: "medium"     # tiny, base, small, medium, large-v2, large-v3
+  device: "auto"      # cpu, cuda, auto (only for faster-whisper backend)
+  compute_type: "int8" # int8, float16, float32 (only for faster-whisper backend)
   language: null      # null = auto-detect, or specify language code (en, es, fr, etc.)
+
+  # Anti-hallucination settings
+  no_speech_threshold: 0.6  # Higher = more aggressive filtering (0.0-1.0, default: 0.6)
+  logprob_threshold: -1.0   # Higher = filter low-confidence text (default: -1.0)
+  compression_ratio_threshold: 2.4  # Lower = filter repetitive text (default: 2.4)
 
 translation:
   enabled: true
   source_lang: null   # null = auto from whisper detection
   target_lang: "es"   # target language code (es, fr, de, ja, zh, etc.)
+  glossary_path: null # Optional: path to custom glossary YAML file (e.g., "./glossary.yaml")
 
 output:
   text_file: "./subtitles.txt"  # Path for OBS Text (GDI+) source
   websocket_enabled: true
   websocket_port: 8765
   http_port: 8766
-  max_lines: 2        # Maximum lines to display
-  clear_after: 5.0    # Clear subtitles after N seconds of silence
+  max_lines: 2        # Maximum lines to display (legacy mode)
+  clear_after: 5.0    # Clear subtitles after N seconds of silence (legacy mode)
+
+  # YouTube-style scrolling subtitles
+  scrolling_mode: true  # Enable continuous scrolling subtitles
+  history_lines: 10     # Number of subtitle lines to keep visible

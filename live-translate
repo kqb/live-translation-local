@@ -1,0 +1,15 @@
+#!/bin/bash
+# Live Translator Launcher
+# This script can be run from any directory to start the live translator
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Activate virtual environment
+source "$SCRIPT_DIR/.venv/bin/activate"
+
+# Change to project directory (for config file access)
+cd "$SCRIPT_DIR"
+
+# Run live-translator with M4 Max config and pass all arguments
+exec live-translator run -c config-m4max.yaml "$@"

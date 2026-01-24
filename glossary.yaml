@@ -1,0 +1,407 @@
+# Unified Glossary for Live Translation
+# Bidirectional Japanese ↔ English translations
+# Includes: 2A yo-yo terminology + general tech terms
+
+glossary:
+  # English to Japanese translations
+  en_to_ja:
+    # === 2A YO-YO TERMINOLOGY ===
+
+    # Core Trick Names
+    "loop": "ループ"
+    "looping": "ルーピング"
+    "inside loop": "インサイドループ"
+    "outside loop": "アウトサイドループ"
+    "two-handed loops": "ツーハンドループ"
+    "continuous loops": "連続ループ"
+    "alternating loops": "交互ループ"
+    "simultaneous loops": "同時ループ"
+
+    # Basic 2A Tricks
+    "forward pass": "フォワードパス"
+    "sleeper": "スリーパー"
+    "around the world": "アラウンド・ザ・ワールド"
+    "hop the fence": "ホップ・ザ・フェンス"
+    "reach for the moon": "リーチ・フォー・ザ・ムーン"
+    "planet hop": "プラネットホップ"
+    "time warp": "タイムワープ"
+    "punching bag": "パンチングバッグ"
+    "milk the cow": "ミルク・ザ・カウ"
+    "warp drive": "ワープドライブ"
+
+    # Intermediate/Advanced
+    "tangler": "タングラー"
+    "criss-cross": "クリスクロス"
+    "behind the back": "ビハインド・ザ・バック"
+    "under the leg": "アンダー・ザ・レッグ"
+    "shoot the moon": "シュート・ザ・ムーン"
+    "stall": "ストール"
+    "regeneration": "リジェネレーション"
+    "regen": "リジェネ"
+
+    # Wraps
+    "wrap": "ラップ"
+    "cow wrap": "カウラップ"
+    "hook wrap": "フックラップ"
+    "love machine": "ラブマシーン"
+    "wookie fountain": "ウーキーファウンテン"
+    "fountain": "ファウンテン"
+
+    # Angles
+    "tangent": "タンジェント"
+    "vertical": "バーティカル"
+    "horizontal": "ホリゾンタル"
+    "diagonal": "ダイアゴナル"
+
+    # Yo-yo Equipment
+    "yo-yo": "ヨーヨー"
+    "looping yo-yo": "ルーピングヨーヨー"
+    "bearing": "ベアリング"
+    "string": "ストリング"
+    "string tension": "ストリングテンション"
+    "string length": "ストリングの長さ"
+    "gap": "ギャップ"
+    "response": "レスポンス"
+    "starburst": "スターバースト"
+    "axle": "アクセル"
+    "spacer": "スペーサー"
+    "lubrication": "ルブ"
+    "lube": "ルブ"
+    "thick lube": "厚いルブ"
+    "thin lube": "薄いルブ"
+    "responsive": "レスポンシブ"
+    "unresponsive": "アンレスポンシブ"
+    "spin time": "スピンタイム"
+
+    # Yo-yo Models
+    "Loop 720": "ループ720"
+    "Loop 1080": "ループ1080"
+    "Loop 2020": "ループ2020"
+    "Seeker": "シーカー"
+    "LoopUp": "ループアップ"
+    "Initiator": "イニシエーター"
+    "Oracle": "オラクル"
+    "Raider": "レイダー"
+    "Sunset Trajectory": "サンセットトラジェクトリー"
+
+    # Body Parts
+    "wrist": "手首"
+    "hand": "手"
+    "right hand": "右手"
+    "left hand": "左手"
+    "both hands": "両手"
+    "dominant hand": "利き手"
+    "non-dominant hand": "非利き手"
+    "weak hand": "弱い手"
+    "palm": "手のひら"
+    "finger": "指"
+    "index finger": "人差し指"
+    "middle finger": "中指"
+    "thumb": "親指"
+    "elbow": "肘"
+    "arm": "腕"
+    "forearm": "前腕"
+    "shoulder": "肩"
+    "body": "体"
+
+    # Instructions
+    "watch": "見て"
+    "try it": "やってみて"
+    "one more time": "もう一回"
+    "again": "もう一度"
+    "slowly": "ゆっくり"
+    "faster": "もっと速く"
+    "slower": "もっとゆっくり"
+    "stop": "止まって"
+    "continue": "続けて"
+    "let's start": "始めましょう"
+    "practice": "練習"
+    "technique": "テクニック"
+    "form": "フォーム"
+    "control": "コントロール"
+    "consistency": "安定性"
+
+    # Feedback
+    "good": "いいね"
+    "nice": "いいね"
+    "very good": "とても上手"
+    "perfect": "完璧"
+    "almost": "惜しい"
+    "not quite": "ちょっと違う"
+    "better": "良くなった"
+    "getting better": "上達してる"
+
+    # Corrections
+    "too high": "高すぎ"
+    "too low": "低すぎ"
+    "too fast": "速すぎ"
+    "too slow": "遅すぎ"
+    "too wide": "広すぎ"
+    "too narrow": "狭すぎ"
+    "more power": "もっと力を"
+    "less power": "力を抜いて"
+    "relax": "リラックス"
+    "angle is wrong": "角度が違う"
+    "timing is off": "タイミングがずれてる"
+
+    # Movements
+    "throw": "投げる"
+    "catch": "取る"
+    "flick": "フリック"
+    "snap": "スナップ"
+    "release": "リリース"
+    "pull": "引く"
+    "push": "押す"
+    "swing": "振る"
+    "rotate": "回転"
+    "twist": "ひねる"
+
+    # Directions
+    "in front": "前"
+    "behind": "後ろ"
+    "side": "横"
+    "above": "上"
+    "below": "下"
+    "up": "上"
+    "down": "下"
+    "left side": "左側"
+    "right side": "右側"
+    "center": "中央"
+
+    # 9-1 Method
+    "9-1 method": "9-1メソッド"
+    "focus on weak hand": "弱い手に集中"
+    "non-dominant first": "非利き手を先に"
+    "balance both hands": "両手のバランス"
+
+    # Competition
+    "competition": "大会"
+    "freestyle": "フリースタイル"
+    "prelims": "予選"
+    "finals": "決勝"
+    "routine": "ルーティン"
+    "trick ladder": "トリックラダー"
+    "2A": "2A"
+
+    # === GENERAL TECH TERMS ===
+    "API": "API"
+    "neural network": "ニューラルネットワーク"
+    "machine learning": "機械学習"
+    "deep learning": "ディープラーニング"
+    "streaming": "ストリーミング"
+    "live translation": "リアルタイム翻訳"
+    "real-time": "リアルタイム"
+    "transcription": "文字起こし"
+    "speech recognition": "音声認識"
+    "OBS Studio": "OBS Studio"
+    "Whisper": "Whisper"
+    "Claude": "Claude"
+    "Apple Silicon": "Apple Silicon"
+
+  # Japanese to English translations
+  ja_to_en:
+    # === 2A YO-YO TERMINOLOGY ===
+
+    # Core Trick Names
+    "ループ": "loop"
+    "ルーピング": "looping"
+    "インサイドループ": "inside loop"
+    "インループ": "inside loop"
+    "アウトサイドループ": "outside loop"
+    "アウトループ": "outside loop"
+    "ツーハンドループ": "two-handed loops"
+    "連続ループ": "continuous loops"
+    "交互ループ": "alternating loops"
+    "同時ループ": "simultaneous loops"
+
+    # Basic 2A Tricks
+    "フォワードパス": "forward pass"
+    "スリーパー": "sleeper"
+    "アラウンド・ザ・ワールド": "around the world"
+    "世界一周": "around the world"
+    "ホップ・ザ・フェンス": "hop the fence"
+    "リーチ・フォー・ザ・ムーン": "reach for the moon"
+    "プラネットホップ": "planet hop"
+    "タイムワープ": "time warp"
+    "パンチングバッグ": "punching bag"
+    "ミルク・ザ・カウ": "milk the cow"
+    "ワープドライブ": "warp drive"
+
+    # Intermediate/Advanced
+    "タングラー": "tangler"
+    "クリスクロス": "criss-cross"
+    "ビハインド・ザ・バック": "behind the back"
+    "アンダー・ザ・レッグ": "under the leg"
+    "シュート・ザ・ムーン": "shoot the moon"
+    "ストール": "stall"
+    "リジェネレーション": "regeneration"
+    "リジェネ": "regen"
+
+    # Wraps
+    "ラップ": "wrap"
+    "カウラップ": "cow wrap"
+    "フックラップ": "hook wrap"
+    "ラブマシーン": "love machine"
+    "ウーキーファウンテン": "wookie fountain"
+    "ファウンテン": "fountain"
+
+    # Angles
+    "タンジェント": "tangent"
+    "バーティカル": "vertical"
+    "ホリゾンタル": "horizontal"
+    "ダイアゴナル": "diagonal"
+
+    # Yo-yo Equipment
+    "ヨーヨー": "yo-yo"
+    "ルーピングヨーヨー": "looping yo-yo"
+    "ベアリング": "bearing"
+    "ストリング": "string"
+    "糸": "string"
+    "ストリングテンション": "string tension"
+    "ストリングの長さ": "string length"
+    "ギャップ": "gap"
+    "レスポンス": "response"
+    "スターバースト": "starburst"
+    "アクセル": "axle"
+    "軸": "axle"
+    "スペーサー": "spacer"
+    "ルブ": "lube"
+    "オイル": "lube"
+    "厚いルブ": "thick lube"
+    "薄いルブ": "thin lube"
+    "レスポンシブ": "responsive"
+    "アンレスポンシブ": "unresponsive"
+    "スピンタイム": "spin time"
+    "回転時間": "spin time"
+
+    # Yo-yo Models
+    "ループ720": "Loop 720"
+    "ループ1080": "Loop 1080"
+    "ループ2020": "Loop 2020"
+    "シーカー": "Seeker"
+    "ループアップ": "LoopUp"
+    "イニシエーター": "Initiator"
+    "オラクル": "Oracle"
+    "レイダー": "Raider"
+    "サンセットトラジェクトリー": "Sunset Trajectory"
+
+    # Body Parts
+    "手首": "wrist"
+    "手": "hand"
+    "右手": "right hand"
+    "左手": "left hand"
+    "両手": "both hands"
+    "利き手": "dominant hand"
+    "非利き手": "non-dominant hand"
+    "弱い手": "weak hand"
+    "手のひら": "palm"
+    "指": "finger"
+    "人差し指": "index finger"
+    "中指": "middle finger"
+    "親指": "thumb"
+    "肘": "elbow"
+    "腕": "arm"
+    "前腕": "forearm"
+    "肩": "shoulder"
+    "体": "body"
+
+    # Instructions
+    "見て": "watch"
+    "やってみて": "try it"
+    "もう一回": "one more time"
+    "もう一度": "again"
+    "ゆっくり": "slowly"
+    "もっと速く": "faster"
+    "もっとゆっくり": "slower"
+    "止まって": "stop"
+    "続けて": "continue"
+    "始めましょう": "let's start"
+    "練習": "practice"
+    "テクニック": "technique"
+    "技術": "technique"
+    "フォーム": "form"
+    "コントロール": "control"
+    "安定性": "consistency"
+
+    # Feedback
+    "いいね": "good"
+    "上手": "good"
+    "とても上手": "very good"
+    "完璧": "perfect"
+    "惜しい": "almost"
+    "ちょっと違う": "not quite"
+    "良くなった": "better"
+    "上達してる": "getting better"
+
+    # Corrections
+    "高すぎ": "too high"
+    "低すぎ": "too low"
+    "速すぎ": "too fast"
+    "遅すぎ": "too slow"
+    "広すぎ": "too wide"
+    "狭すぎ": "too narrow"
+    "もっと力を": "more power"
+    "力を抜いて": "less power"
+    "リラックス": "relax"
+    "角度が違う": "angle is wrong"
+    "タイミングがずれてる": "timing is off"
+
+    # Movements
+    "投げる": "throw"
+    "取る": "catch"
+    "フリック": "flick"
+    "スナップ": "snap"
+    "リリース": "release"
+    "引く": "pull"
+    "押す": "push"
+    "振る": "swing"
+    "回転": "rotate"
+    "ひねる": "twist"
+
+    # Directions
+    "前": "in front"
+    "後ろ": "behind"
+    "横": "side"
+    "上": "above"
+    "下": "below"
+    "左側": "left side"
+    "右側": "right side"
+    "中央": "center"
+
+    # 9-1 Method
+    "9-1メソッド": "9-1 method"
+    "弱い手に集中": "focus on weak hand"
+    "非利き手を先に": "non-dominant first"
+    "両手のバランス": "balance both hands"
+
+    # Competition
+    "大会": "competition"
+    "コンテスト": "competition"
+    "フリースタイル": "freestyle"
+    "予選": "prelims"
+    "決勝": "finals"
+    "ルーティン": "routine"
+    "トリックラダー": "trick ladder"
+    "2A": "2A"
+
+    # === GENERAL TECH TERMS ===
+    "API": "API"
+    "ニューラルネットワーク": "neural network"
+    "機械学習": "machine learning"
+    "ディープラーニング": "deep learning"
+    "ストリーミング": "streaming"
+    "リアルタイム翻訳": "live translation"
+    "リアルタイム": "real-time"
+    "文字起こし": "transcription"
+    "音声認識": "speech recognition"
+    "OBS Studio": "OBS Studio"
+    "Whisper": "Whisper"
+    "Claude": "Claude"
+    "Apple Silicon": "Apple Silicon"
+
+# Notes:
+# - Contains 200+ 2A yo-yo terms + general tech vocabulary
+# - English matches are case-insensitive with word boundaries
+# - Japanese matches are exact
+# - Longer phrases matched first to avoid partial replacements
+# - All terms ensure consistent bidirectional translation

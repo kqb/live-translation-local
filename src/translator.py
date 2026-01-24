@@ -3,16 +3,22 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
 import ctranslate2
+import yaml
 from transformers import AutoTokenizer
 
 
 # Default model repository (pre-converted CT2 int8 model)
-DEFAULT_MODEL_REPO = "JustFrederik/nllb-200-distilled-600M-ct2-int8"
+# Options:
+# - "JustFrederik/nllb-200-distilled-600M-ct2-int8" (600M - faster, lower quality)
+# - "michaelfeil/ct2fast-nllb-200-1.3B" (1.3B - better quality, still fast on M4 Max)
+# - "michaelfeil/ct2fast-nllb-200-3.3B" (3.3B - highest quality, slower)
+DEFAULT_MODEL_REPO = "michaelfeil/ct2fast-nllb-200-1.3B"  # Upgraded for better quality
 
 # Cache directory for models
 DEFAULT_CACHE_DIR = Path.home() / ".cache" / "nllb-ct2"
@@ -144,6 +150,7 @@ class TranslatorConfig:
     cache_dir: Optional[Path] = None
     device: str = "auto"  # cpu, cuda, auto
     compute_type: str = "auto"  # auto, int8, float16
+    glossary_path: Optional[str] = None  # Path to custom glossary YAML
 
 
 @dataclass
@@ -169,6 +176,7 @@ class Translator:
         self._model: Optional[ctranslate2.Translator] = None
         self._tokenizer = None
         self._cache_dir = config.cache_dir or DEFAULT_CACHE_DIR
+        self._glossary = self._load_glossary()
 
     def _get_device(self) -> str:
         """Determine the device to use."""
@@ -264,6 +272,80 @@ class Translator:
 
         raise ValueError(f"Unknown language code: {lang_code}")
 
+    def _load_glossary(self) -> dict:
+        """Load custom glossary from YAML file.
+
+        Returns:
+            Dictionary with glossary mappings.
+        """
+        if not self.config.glossary_path:
+            return {"en_to_ja": {}, "ja_to_en": {}}
+
+        try:
+            glossary_path = Path(self.config.glossary_path).expanduser()
+            if not glossary_path.exists():
+                return {"en_to_ja": {}, "ja_to_en": {}}
+
+            with open(glossary_path) as f:
+                data = yaml.safe_load(f)
+
+            if not data or "glossary" not in data:
+                return {"en_to_ja": {}, "ja_to_en": {}}
+
+            glossary = data["glossary"]
+            return {
+                "en_to_ja": glossary.get("en_to_ja", {}),
+                "ja_to_en": glossary.get("ja_to_en", {}),
+            }
+        except Exception:
+            # If glossary loading fails, continue without it
+            return {"en_to_ja": {}, "ja_to_en": {}}
+
+    def _apply_glossary(
+        self, text: str, source_lang: str, target_lang: str
+    ) -> str:
+        """Apply glossary replacements to translated text.
+
+        Args:
+            text: Text to apply glossary to.
+            source_lang: Source language code.
+            target_lang: Target language code.
+
+        Returns:
+            Text with glossary replacements applied.
+        """
+        if not text or not self._glossary:
+            return text
+
+        # Determine which glossary to use
+        glossary_map = None
+        if source_lang == "en" and target_lang == "ja":
+            glossary_map = self._glossary.get("en_to_ja", {})
+        elif source_lang == "ja" and target_lang == "en":
+            glossary_map = self._glossary.get("ja_to_en", {})
+
+        if not glossary_map:
+            return text
+
+        # Sort by length (longest first) to avoid partial replacements
+        sorted_terms = sorted(glossary_map.items(), key=lambda x: len(x[0]), reverse=True)
+
+        result = text
+        for source_term, target_term in sorted_terms:
+            # For English, use case-insensitive matching
+            if source_lang == "en":
+                # Use word boundaries for English terms
+                pattern = re.compile(
+                    r'\b' + re.escape(source_term) + r'\b',
+                    re.IGNORECASE
+                )
+                result = pattern.sub(target_term, result)
+            else:
+                # For Japanese, exact match
+                result = result.replace(source_term, target_term)
+
+        return result
+
     def translate(
         self,
         text: str,
@@ -335,6 +417,13 @@ class Translator:
         translated_text = tokenizer.decode(
             tokenizer.convert_tokens_to_ids(output_tokens),
             skip_special_tokens=True,
+        )
+
+        # Apply custom glossary
+        translated_text = self._apply_glossary(
+            translated_text,
+            source_lang=src_lang or "unknown",
+            target_lang=tgt_lang,
         )
 
         return TranslationResult(
