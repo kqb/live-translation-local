@@ -6,6 +6,7 @@ Automatically generates embeddings for text content.
 """
 
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 from src.exocortex.memory import Memory
@@ -13,6 +14,13 @@ from src.exocortex.storage import QdrantStorage
 from src.exocortex.embedder import MemoryEmbedder
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class SearchResult:
+    """A search result with memory and similarity score."""
+    memory: Memory
+    score: float  # 0.0 to 1.0, higher is more similar
 
 
 class MemoryIndexer:
@@ -87,6 +95,59 @@ class MemoryIndexer:
             RuntimeError: If retrieval fails
         """
         return self.storage.get_memory_by_id(memory_id)
+
+    def search_memories(
+        self,
+        query: str,
+        limit: int = 10,
+        min_score: float = 0.0
+    ) -> list[SearchResult]:
+        """Search for memories semantically similar to query.
+
+        Args:
+            query: Natural language search query
+            limit: Maximum number of results (default 10)
+            min_score: Minimum similarity score 0.0-1.0 (default 0.0)
+
+        Returns:
+            List of SearchResult objects, sorted by relevance
+
+        Raises:
+            ValueError: If query is empty or parameters invalid
+            RuntimeError: If search fails
+        """
+        if not query or not query.strip():
+            raise ValueError("Query cannot be empty")
+
+        if limit < 1:
+            raise ValueError(f"limit must be >= 1, got {limit}")
+
+        logger.debug(f"Searching for: {query[:50]}... (limit={limit})")
+
+        try:
+            # Generate embedding for query
+            query_embedding = self.embedder.embed(query)
+
+            # Search storage
+            results = self.storage.search_similar(
+                query_embedding=query_embedding,
+                limit=limit,
+                min_score=min_score
+            )
+
+            # Convert to SearchResult objects
+            search_results = [
+                SearchResult(memory=memory, score=score)
+                for memory, score in results
+            ]
+
+            logger.info(f"Found {len(search_results)} results for query")
+            return search_results
+
+        except Exception as e:
+            if isinstance(e, (ValueError, RuntimeError)):
+                raise
+            raise RuntimeError(f"Search failed: {e}") from e
 
     def close(self):
         """Close indexer and release resources.

@@ -170,6 +170,56 @@ class QdrantStorage:
         except Exception as e:
             raise RuntimeError(f"Failed to retrieve memory {memory_id}: {e}") from e
 
+    def search_similar(
+        self,
+        query_embedding: list[float],
+        limit: int = 10,
+        min_score: float = 0.0
+    ) -> list[tuple[Memory, float]]:
+        """Search for memories similar to query embedding.
+
+        Args:
+            query_embedding: 384-dim query vector
+            limit: Maximum number of results
+            min_score: Minimum similarity score (0.0-1.0)
+
+        Returns:
+            List of (Memory, score) tuples, sorted by similarity
+
+        Raises:
+            ValueError: If query_embedding is invalid
+            RuntimeError: If search fails
+        """
+        if len(query_embedding) != EMBEDDING_DIM:
+            raise ValueError(
+                f"Query embedding must be {EMBEDDING_DIM}-dim, got {len(query_embedding)}"
+            )
+
+        if not 0.0 <= min_score <= 1.0:
+            raise ValueError(f"min_score must be 0.0-1.0, got {min_score}")
+
+        try:
+            # Search Qdrant for similar vectors
+            response = self.qdrant.query_points(
+                collection_name=self.collection_name,
+                query=query_embedding,
+                limit=limit,
+                score_threshold=min_score
+            )
+
+            # Retrieve full memories from SQLite
+            memories_with_scores = []
+            for point in response.points:
+                memory_id = point.payload["memory_id"]
+                memory = self.get_memory_by_id(memory_id)
+                if memory:
+                    memories_with_scores.append((memory, point.score))
+
+            return memories_with_scores
+
+        except Exception as e:
+            raise RuntimeError(f"Search failed: {e}") from e
+
     def close(self):
         """Close storage connections.
 

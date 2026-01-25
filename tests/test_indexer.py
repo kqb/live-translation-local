@@ -87,3 +87,62 @@ def test_context_manager_support(tmp_path):
         indexer.index_memory(memory)
 
     # Should be closed after context
+
+def test_search_memories(temp_indexer):
+    """Test semantic search for memories."""
+    # Index some memories
+    memories = [
+        Memory(
+            memory_id=Memory.generate_id(),
+            metadata=MemoryMetadata(
+                timestamp=datetime.now(),
+                source_type="audio",
+                source_id="session_1"
+            ),
+            text="I love programming in Python",
+            language="en"
+        ),
+        Memory(
+            memory_id=Memory.generate_id(),
+            metadata=MemoryMetadata(
+                timestamp=datetime.now(),
+                source_type="audio",
+                source_id="session_2"
+            ),
+            text="The weather is nice today",
+            language="en"
+        ),
+        Memory(
+            memory_id=Memory.generate_id(),
+            metadata=MemoryMetadata(
+                timestamp=datetime.now(),
+                source_type="audio",
+                source_id="session_3"
+            ),
+            text="Python is a great language for coding",
+            language="en"
+        )
+    ]
+
+    for memory in memories:
+        temp_indexer.index_memory(memory)
+
+    # Search for programming-related content
+    results = temp_indexer.search_memories("Python programming")
+
+    assert len(results) > 0
+    # First two results should be about Python
+    assert "Python" in results[0].memory.text or "programming" in results[0].memory.text
+    # Results should be SearchResult objects with scores
+    assert hasattr(results[0], 'score')
+    assert 0.0 <= results[0].score <= 1.0
+
+def test_search_empty_query(temp_indexer):
+    """Test that empty query raises error."""
+    with pytest.raises(ValueError, match="Query cannot be empty"):
+        temp_indexer.search_memories("")
+
+def test_search_invalid_limit(temp_indexer):
+    """Test that invalid limit raises error."""
+    with pytest.raises(ValueError, match="limit must be >= 1"):
+        temp_indexer.search_memories("test", limit=0)
