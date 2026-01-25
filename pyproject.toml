@@ -51,6 +51,7 @@ dev = [
 
 [project.scripts]
 live-translator = "src.cli:cli"
+exo = "src.exocortex.cli:cli"
 
 [project.urls]
 Homepage = "https://github.com/live-translator/live-translator-obs"
