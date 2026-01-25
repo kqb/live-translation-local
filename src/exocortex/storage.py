@@ -10,10 +10,12 @@ Both are embedded (no external servers required).
 
 import json
 import sqlite3
+import threading
 from pathlib import Path
 from typing import Optional
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
+from qdrant_client.http.exceptions import UnexpectedResponse
 from src.exocortex.memory import Memory, EMBEDDING_DIM
 
 
@@ -41,24 +43,38 @@ class QdrantStorage:
         # Create collection if it doesn't exist
         try:
             self.qdrant.get_collection(collection_name)
-        except Exception:
-            # Collection doesn't exist, create it
-            self.qdrant.create_collection(
-                collection_name=collection_name,
-                vectors_config=VectorParams(
-                    size=EMBEDDING_DIM,
-                    distance=Distance.COSINE
+        except (UnexpectedResponse, ValueError) as e:
+            # Only create if collection truly doesn't exist
+            if "not found" in str(e).lower() or "doesn't exist" in str(e).lower():
+                self.qdrant.create_collection(
+                    collection_name=collection_name,
+                    vectors_config=VectorParams(
+                        size=EMBEDDING_DIM,
+                        distance=Distance.COSINE
+                    )
                 )
-            )
+            else:
+                raise  # Re-raise other Qdrant errors
 
-        # Initialize SQLite
-        sqlite_path = self.storage_path / "metadata.db"
-        self.db = sqlite3.connect(str(sqlite_path), check_same_thread=False)
-        self._init_db()
+        # Initialize SQLite with thread-local connections
+        self._db_path = self.storage_path / "metadata.db"
+        self._thread_local = threading.local()
 
-    def _init_db(self):
-        """Initialize SQLite schema."""
-        cursor = self.db.cursor()
+        # Initialize schema using a temporary connection
+        init_db = sqlite3.connect(str(self._db_path))
+        self._init_db_schema(init_db)
+        init_db.close()
+
+    @property
+    def db(self):
+        """Thread-local database connection."""
+        if not hasattr(self._thread_local, 'connection'):
+            self._thread_local.connection = sqlite3.connect(str(self._db_path))
+        return self._thread_local.connection
+
+    def _init_db_schema(self, conn):
+        """Initialize SQLite schema on given connection."""
+        cursor = conn.cursor()
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS memories (
                 memory_id TEXT PRIMARY KEY,
@@ -66,7 +82,20 @@ class QdrantStorage:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        self.db.commit()
+        conn.commit()
+
+    def _memory_id_to_int(self, memory_id: str) -> int:
+        """Convert memory ID to deterministic integer for Qdrant.
+
+        Args:
+            memory_id: Memory ID in format "mem_<12-hex-chars>"
+
+        Returns:
+            Deterministic integer representation
+        """
+        # Extract hex portion and convert to int
+        hex_part = memory_id.replace("mem_", "")
+        return int(hex_part, 16)
 
     def store_memory(self, memory: Memory):
         """Store a memory with its embedding.
@@ -75,29 +104,39 @@ class QdrantStorage:
             memory: Memory instance to store
 
         Raises:
-            ValueError: If memory has no embedding
+            ValueError: If memory has no embedding or is invalid
+            RuntimeError: If storage operation fails
         """
         if memory.embedding is None:
             raise ValueError("Memory must have an embedding to be stored")
 
-        # Store vector in Qdrant
-        point = PointStruct(
-            id=hash(memory.memory_id),  # Convert string ID to int for Qdrant
-            vector=memory.embedding,
-            payload={"memory_id": memory.memory_id}
-        )
-        self.qdrant.upsert(
-            collection_name=self.collection_name,
-            points=[point]
-        )
+        if len(memory.embedding) != EMBEDDING_DIM:
+            raise ValueError(f"Embedding must be {EMBEDDING_DIM}-dim, got {len(memory.embedding)}")
 
-        # Store metadata in SQLite (using proper JSON serialization)
-        cursor = self.db.cursor()
-        cursor.execute(
-            "INSERT OR REPLACE INTO memories (memory_id, data) VALUES (?, ?)",
-            (memory.memory_id, json.dumps(memory.to_dict()))
-        )
-        self.db.commit()
+        try:
+            # Store vector in Qdrant first
+            point = PointStruct(
+                id=self._memory_id_to_int(memory.memory_id),
+                vector=memory.embedding,
+                payload={"memory_id": memory.memory_id}
+            )
+            self.qdrant.upsert(
+                collection_name=self.collection_name,
+                points=[point]
+            )
+
+            # Then store metadata in SQLite
+            cursor = self.db.cursor()
+            cursor.execute(
+                "INSERT OR REPLACE INTO memories (memory_id, data) VALUES (?, ?)",
+                (memory.memory_id, json.dumps(memory.to_dict()))
+            )
+            self.db.commit()
+
+        except Exception as e:
+            # Rollback SQLite if needed
+            self.db.rollback()
+            raise RuntimeError(f"Failed to store memory {memory.memory_id}: {e}") from e
 
     def get_memory_by_id(self, memory_id: str) -> Optional[Memory]:
         """Retrieve a memory by ID.
@@ -107,22 +146,54 @@ class QdrantStorage:
 
         Returns:
             Memory instance if found, None otherwise
+
+        Raises:
+            RuntimeError: If retrieval fails
         """
-        cursor = self.db.cursor()
-        cursor.execute(
-            "SELECT data FROM memories WHERE memory_id = ?",
-            (memory_id,)
-        )
-        row = cursor.fetchone()
+        try:
+            cursor = self.db.cursor()
+            cursor.execute(
+                "SELECT data FROM memories WHERE memory_id = ?",
+                (memory_id,)
+            )
+            row = cursor.fetchone()
 
-        if row is None:
-            return None
+            if row is None:
+                return None
 
-        # Deserialize memory from JSON
-        data = json.loads(row[0])
-        return Memory.from_dict(data)
+            # Deserialize memory
+            data = json.loads(row[0])
+            return Memory.from_dict(data)
+
+        except json.JSONDecodeError as e:
+            raise RuntimeError(f"Corrupted data for memory {memory_id}: {e}") from e
+        except Exception as e:
+            raise RuntimeError(f"Failed to retrieve memory {memory_id}: {e}") from e
 
     def close(self):
-        """Close storage connections."""
-        self.db.close()
-        # Qdrant client doesn't need explicit closing in embedded mode
+        """Close storage connections.
+
+        Raises:
+            RuntimeError: If cleanup fails
+        """
+        errors = []
+
+        # Close thread-local SQLite connections
+        try:
+            if hasattr(self, '_thread_local') and hasattr(self._thread_local, 'connection'):
+                self._thread_local.connection.close()
+                delattr(self._thread_local, 'connection')
+        except Exception as e:
+            errors.append(f"SQLite close error: {e}")
+
+        if errors:
+            raise RuntimeError(f"Errors during close: {'; '.join(errors)}")
+
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit."""
+        self.close()
+        return False
