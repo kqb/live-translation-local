@@ -34,6 +34,13 @@ speaker_recognition:
   database_path: "./data/speakers.json"  # Path to speaker database
   recognition_threshold: 0.75  # Similarity threshold (0.0-1.0)
 
+g2:
+  enabled: false      # Enable G2 smart glasses output
+  mode: "notification"  # Display mode: "notification" or "teleprompter"
+  auto_connect: true  # Auto-connect to glasses on startup
+  use_right: false    # Use right eye (default: false = left eye)
+  display_format: "both"  # "original", "translated", or "both"
+
 output:
   text_file: "./subtitles.txt"  # Path for OBS Text (GDI+) source
   websocket_enabled: true
