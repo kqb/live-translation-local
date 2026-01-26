@@ -23,6 +23,13 @@ translation:
   target_lang: "es"   # target language code (es, fr, de, ja, zh, etc.)
   glossary_path: null # Optional: path to custom glossary YAML file (e.g., "./glossary.yaml")
 
+g2:
+  enabled: false      # Enable G2 smart glasses output
+  mode: "notification"  # Display mode: "notification" or "teleprompter"
+  auto_connect: true  # Auto-connect to glasses on startup
+  use_right: false    # Use right eye (default: false = left eye)
+  display_format: "both"  # "original", "translated", or "both"
+
 output:
   text_file: "./subtitles.txt"  # Path for OBS Text (GDI+) source
   websocket_enabled: true
