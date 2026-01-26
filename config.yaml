@@ -23,6 +23,17 @@ translation:
   target_lang: "es"   # target language code (es, fr, de, ja, zh, etc.)
   glossary_path: null # Optional: path to custom glossary YAML file (e.g., "./glossary.yaml")
 
+diarization:
+  enabled: false      # Enable speaker diarization (requires HuggingFace token)
+  min_speakers: 1     # Minimum number of speakers to detect
+  max_speakers: 10    # Maximum number of speakers to detect
+  hf_token: null      # HuggingFace token for pyannote model access
+
+speaker_recognition:
+  enabled: false      # Enable persistent speaker recognition
+  database_path: "./data/speakers.json"  # Path to speaker database
+  recognition_threshold: 0.75  # Similarity threshold (0.0-1.0)
+
 g2:
   enabled: false      # Enable G2 smart glasses output
   mode: "notification"  # Display mode: "notification" or "teleprompter"
