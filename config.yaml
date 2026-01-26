@@ -23,6 +23,24 @@ translation:
   target_lang: "es"   # target language code (es, fr, de, ja, zh, etc.)
   glossary_path: null # Optional: path to custom glossary YAML file (e.g., "./glossary.yaml")
 
+diarization:
+  enabled: false      # Enable speaker diarization (requires HuggingFace token)
+  min_speakers: 1     # Minimum number of speakers to detect
+  max_speakers: 10    # Maximum number of speakers to detect
+  hf_token: null      # HuggingFace token for pyannote model access
+
+speaker_recognition:
+  enabled: false      # Enable persistent speaker recognition
+  database_path: "./data/speakers.json"  # Path to speaker database
+  recognition_threshold: 0.75  # Similarity threshold (0.0-1.0)
+
+g2:
+  enabled: false      # Enable G2 smart glasses output
+  mode: "notification"  # Display mode: "notification" or "teleprompter"
+  auto_connect: true  # Auto-connect to glasses on startup
+  use_right: false    # Use right eye (default: false = left eye)
+  display_format: "both"  # "original", "translated", or "both"
+
 output:
   text_file: "./subtitles.txt"  # Path for OBS Text (GDI+) source
   websocket_enabled: true
@@ -34,3 +52,9 @@ output:
   # YouTube-style scrolling subtitles
   scrolling_mode: true  # Enable continuous scrolling subtitles
   history_lines: 10     # Number of subtitle lines to keep visible
+
+logging:
+  enabled: false      # Enable session logging
+  log_dir: "./data/sessions"  # Directory for session recordings
+  save_audio: true    # Save audio chunks with metadata
+  incremental_save: true  # Save metadata every 10 chunks
