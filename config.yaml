@@ -34,3 +34,9 @@ output:
   # YouTube-style scrolling subtitles
   scrolling_mode: true  # Enable continuous scrolling subtitles
   history_lines: 10     # Number of subtitle lines to keep visible
+
+logging:
+  enabled: false      # Enable session logging
+  log_dir: "./data/sessions"  # Directory for session recordings
+  save_audio: true    # Save audio chunks with metadata
+  incremental_save: true  # Save metadata every 10 chunks
