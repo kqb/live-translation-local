@@ -41,6 +41,14 @@ struct SessionModel: Identifiable, Codable {
         self.deviceName = deviceName
     }
 
+    /// Cached date formatter for performance
+    private static let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter
+    }()
+
     /// Formatted duration string ("Xm Ys" or "In progress")
     var durationString: String {
         guard let endTime = endTime else {
@@ -56,9 +64,6 @@ struct SessionModel: Identifiable, Codable {
 
     /// Formatted date string (medium date + short time)
     var dateString: String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        return formatter.string(from: startTime)
+        Self.dateFormatter.string(from: startTime)
     }
 }

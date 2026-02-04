@@ -47,10 +47,15 @@ struct TranscriptSegment: Identifiable, Codable {
         self.language = language
     }
 
-    /// Formatted time string (HH:mm:ss)
-    var timeString: String {
+    /// Cached time formatter for performance
+    private static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm:ss"
-        return formatter.string(from: timestamp)
+        return formatter
+    }()
+
+    /// Formatted time string (HH:mm:ss)
+    var timeString: String {
+        Self.timeFormatter.string(from: timestamp)
     }
 }

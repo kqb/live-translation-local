@@ -38,7 +38,7 @@ diarization:
   enabled: true       # Enable speaker diarization (requires HuggingFace token)
   min_speakers: 1     # Minimum number of speakers to detect
   max_speakers: 10    # Maximum number of speakers to detect
-  hf_token: "YOUR_HF_TOKEN_HERE"      # HuggingFace token for pyannote model access
+  hf_token: "YOUR_HF_TOKEN_HERE"  # HuggingFace token for pyannote model access
 
 speaker_recognition:
   enabled: true       # Enable persistent speaker recognition

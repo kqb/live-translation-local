@@ -27,6 +27,7 @@ class OutputConfig:
     clear_after: float = 5.0  # seconds
     scrolling_mode: bool = True  # YouTube-style scrolling subtitles
     history_lines: int = 10  # Number of historical lines to keep visible
+    display_format: str = "both"  # "original", "translated", or "both"
 
 
 # HTML template for browser source overlay with webcam
@@ -375,8 +376,12 @@ class OBSOutput:
             translated: Translated text.
         """
         try:
-            # Write both original and translated for hybrid input
-            if translated:
+            # Format based on display_format setting
+            if self.config.display_format == "translated" and translated:
+                content = translated
+            elif self.config.display_format == "original":
+                content = original
+            elif translated:
                 content = f"{original}\n{translated}"
             else:
                 content = original
@@ -399,7 +404,12 @@ class OBSOutput:
             # Get most recent entry
             latest = self._subtitle_history[-1]
 
-            if latest["translated"]:
+            # Format based on display_format setting
+            if self.config.display_format == "translated" and latest["translated"]:
+                content = latest["translated"]
+            elif self.config.display_format == "original":
+                content = latest["original"]
+            elif latest["translated"]:
                 content = f"{latest['original']}\n{latest['translated']}"
             else:
                 content = latest["original"]

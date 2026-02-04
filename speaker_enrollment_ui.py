@@ -1394,6 +1394,47 @@ HTML_TEMPLATE = """
             }
         }
 
+        async function loadRecentMemories() {
+            const response = await fetch('/api/recent?limit=20');
+            const memories = await response.json();
+            
+            const resultsDiv = document.getElementById('searchResults');
+            resultsDiv.innerHTML = '<h3 style="margin-bottom: 1rem;">Recent Memories</h3>';
+            
+            if (memories.length === 0) {
+                resultsDiv.innerHTML += '<p style="color: #999;">No memories found</p>';
+                return;
+            }
+            
+            memories.forEach(memory => {
+                const card = document.createElement('div');
+                card.style.cssText = 'background: #2a2a2a; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem; border-left: 3px solid #4a9eff;';
+                
+                const timestamp = new Date(memory.timestamp).toLocaleString();
+                const tags = memory.tags.join(', ');
+                
+                card.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span style="color: #4a9eff; font-size: 0.9em;">${memory.source_id}</span>
+                        <span style="color: #999; font-size: 0.9em;">${timestamp}</span>
+                    </div>
+                    <p style="margin-bottom: 0.5rem;">${memory.text}</p>
+                    <div style="color: #999; font-size: 0.85em;">
+                        Tags: ${tags || 'none'}
+                    </div>
+                `;
+                
+                resultsDiv.appendChild(card);
+            });
+        }
+
+        // Load recent memories on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            loadStats();
+            loadSpeakers();
+            loadRecentMemories();
+        });
+
         function renderSearchResults(results) {
             const container = document.getElementById('searchResults');
             container.innerHTML = '';
@@ -1635,6 +1676,48 @@ def api_pipeline():
     except Exception as e:
         console.print(f"[red]Error getting pipeline status: {e}[/red]")
         return jsonify({"error": str(e)}), 500
+
+
+
+@app.route("/api/recent")
+def api_recent():
+    """Get recent memories."""
+    try:
+        limit = int(request.args.get("limit", 20))
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT data FROM memories 
+            ORDER BY created_at DESC 
+            LIMIT ?
+        """, (limit,))
+        
+        results = []
+        for (data_json,) in cursor.fetchall():
+            data = json.loads(data_json)
+            metadata = data.get("metadata", {})
+            
+            text = data.get("text", "")
+            preview = text[:200] + "..." if len(text) > 200 else text
+            
+            results.append({
+                "memory_id": data.get("memory_id", ""),
+                "text": preview,
+                "full_text": text,
+                "timestamp": metadata.get("timestamp", ""),
+                "source_type": metadata.get("source_type", ""),
+                "source_id": metadata.get("source_id", ""),
+                "tags": metadata.get("tags", [])
+            })
+        
+        conn.close()
+        return jsonify(results)
+        
+    except Exception as e:
+        console.print(f"[red]Error fetching recent memories: {e}[/red]")
+        return jsonify([])
 
 
 if __name__ == "__main__":
