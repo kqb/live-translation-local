@@ -1,7 +1,18 @@
 audio:
+  source: "microphone"  # "microphone" or "omi" (Omi wearable)
+
+  # Microphone settings (used when source = "microphone")
   device: null        # null = default mic, or specify device index/name
   sample_rate: 16000  # 16kHz for Whisper
   chunk_duration: 3.0 # seconds per audio chunk
+
+  # Omi wearable settings (used when source = "omi")
+  omi:
+    mac_address: null       # null = auto-discover first Omi device, or specify MAC address
+    auto_connect: true      # Auto-connect on startup
+    auto_reconnect: true    # Auto-reconnect on disconnect
+    reconnect_delay: 5.0    # Seconds to wait before reconnecting
+    battery_monitoring: true  # Monitor battery level (warnings only)
 
 # Backend: "whisper-cpp" (default, best for Apple Silicon) or "faster-whisper" (best for CUDA)
 # Override with: live-translator run --backend faster-whisper
@@ -20,26 +31,30 @@ whisper:
 translation:
   enabled: true
   source_lang: null   # null = auto from whisper detection
-  target_lang: "es"   # target language code (es, fr, de, ja, zh, etc.)
+  target_lang: "zh"   # target language code (es, fr, de, ja, zh, etc.)
   glossary_path: null # Optional: path to custom glossary YAML file (e.g., "./glossary.yaml")
 
 diarization:
-  enabled: false      # Enable speaker diarization (requires HuggingFace token)
+  enabled: true       # Enable speaker diarization (requires HuggingFace token)
   min_speakers: 1     # Minimum number of speakers to detect
   max_speakers: 10    # Maximum number of speakers to detect
-  hf_token: null      # HuggingFace token for pyannote model access
+  hf_token: "YOUR_HF_TOKEN_HERE"      # HuggingFace token for pyannote model access
 
 speaker_recognition:
-  enabled: false      # Enable persistent speaker recognition
+  enabled: true       # Enable persistent speaker recognition
   database_path: "./data/speakers.json"  # Path to speaker database
   recognition_threshold: 0.75  # Similarity threshold (0.0-1.0)
 
 g2:
-  enabled: false      # Enable G2 smart glasses output
-  mode: "notification"  # Display mode: "notification" or "teleprompter"
+  enabled: true       # Enable G2 smart glasses output
+  # Display mode options:
+  #   "evenai" - RECOMMENDED: Even AI protocol (confirmed working, fast updates)
+  #   "teleprompter" - Multi-line text display (slower, static scripts only)
+  #   "notification" - File transfer (unreliable, requires both eyes)
+  mode: "evenai"
   auto_connect: true  # Auto-connect to glasses on startup
-  use_right: false    # Use right eye (default: false = left eye)
-  display_format: "both"  # "original", "translated", or "both"
+  use_right: false    # Use right eye (default: false = left eye for teleprompter)
+  display_format: "translated"  # "original", "translated", or "both"
 
 output:
   text_file: "./subtitles.txt"  # Path for OBS Text (GDI+) source
@@ -48,13 +63,14 @@ output:
   http_port: 8766
   max_lines: 2        # Maximum lines to display (legacy mode)
   clear_after: 5.0    # Clear subtitles after N seconds of silence (legacy mode)
+  display_format: "translated"  # "original", "translated", or "both"
 
   # YouTube-style scrolling subtitles
   scrolling_mode: true  # Enable continuous scrolling subtitles
   history_lines: 10     # Number of subtitle lines to keep visible
 
 logging:
-  enabled: false      # Enable session logging
+  enabled: true       # Enable session logging
   log_dir: "./data/sessions"  # Directory for session recordings
   save_audio: true    # Save audio chunks with metadata
   incremental_save: true  # Save metadata every 10 chunks

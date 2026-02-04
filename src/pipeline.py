@@ -21,6 +21,8 @@ from .obs_output import OBSOutput, OutputConfig
 from .transcriber import Transcriber, TranscriberConfig
 from .translator import Translator, TranslatorConfig
 from .whisper_cpp_transcriber import WhisperCppTranscriber, create_whisper_cpp_config
+from .g2_output import G2Output, G2Config
+from .omi_input import OmiAudioCapture, OmiConfig
 
 
 console = Console()
@@ -31,10 +33,14 @@ class PipelineConfig:
     """Complete pipeline configuration."""
 
     audio: AudioConfig = field(default_factory=AudioConfig)
+    omi: OmiConfig = field(default_factory=OmiConfig)
+    audio_source: str = "microphone"  # "microphone" or "omi"
     transcriber: TranscriberConfig = field(default_factory=TranscriberConfig)
     translator: TranslatorConfig = field(default_factory=TranslatorConfig)
     output: OutputConfig = field(default_factory=OutputConfig)
+    g2: G2Config = field(default_factory=G2Config)
     backend: str = "whisper-cpp"  # "whisper-cpp" or "faster-whisper"
+    translated_only: bool = False  # Only show translated text in console output
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "PipelineConfig":
@@ -47,14 +53,25 @@ class PipelineConfig:
             PipelineConfig instance.
         """
         audio_data = data.get("audio", {})
+        omi_data = audio_data.get("omi", {})
         whisper_data = data.get("whisper", {})
         translation_data = data.get("translation", {})
         output_data = data.get("output", {})
+        g2_data = data.get("g2", {})
 
         return cls(
+            audio_source=audio_data.get("source", "microphone"),
             audio=AudioConfig(
                 device=audio_data.get("device"),
                 sample_rate=audio_data.get("sample_rate", 16000),
+                chunk_duration=audio_data.get("chunk_duration", 3.0),
+            ),
+            omi=OmiConfig(
+                mac_address=omi_data.get("mac_address"),
+                auto_connect=omi_data.get("auto_connect", True),
+                auto_reconnect=omi_data.get("auto_reconnect", True),
+                reconnect_delay=omi_data.get("reconnect_delay", 5.0),
+                battery_monitoring=omi_data.get("battery_monitoring", True),
                 chunk_duration=audio_data.get("chunk_duration", 3.0),
             ),
             transcriber=TranscriberConfig(
@@ -81,6 +98,14 @@ class PipelineConfig:
                 clear_after=output_data.get("clear_after", 5.0),
                 scrolling_mode=output_data.get("scrolling_mode", True),
                 history_lines=output_data.get("history_lines", 10),
+                display_format=output_data.get("display_format", "both"),
+            ),
+            g2=G2Config(
+                enabled=g2_data.get("enabled", False),
+                mode=g2_data.get("mode", "teleprompter"),
+                auto_connect=g2_data.get("auto_connect", True),
+                use_right=g2_data.get("use_right", False),
+                display_format=g2_data.get("display_format", "both"),
             ),
         )
 
@@ -110,8 +135,13 @@ class Pipeline:
         """
         self.config = config
 
-        # Initialize components
-        self.audio_capture = AudioCapture(config.audio)
+        # Initialize audio capture based on source
+        if config.audio_source == "omi":
+            console.print("[dim]→ Using Omi wearable as audio source[/dim]")
+            self.audio_capture = OmiAudioCapture(config.omi)
+        else:
+            console.print("[dim]→ Using microphone as audio source[/dim]")
+            self.audio_capture = AudioCapture(config.audio)
 
         # Choose transcriber backend
         if config.backend == "whisper-cpp":
@@ -128,6 +158,14 @@ class Pipeline:
 
         self.translator = Translator(config.translator)
         self.output = OBSOutput(config.output)
+
+        # G2 smart glasses output (optional)
+        self.g2_output: Optional[G2Output] = None
+        if config.g2.enabled:
+            try:
+                self.g2_output = G2Output(config.g2)
+            except ImportError as e:
+                console.print(f"[yellow]G2 output disabled: {e}[/yellow]")
 
         # Pipeline state
         self._running = False
@@ -263,17 +301,23 @@ class Pipeline:
                 return
 
             self._stats["transcriptions"] += 1
-            console.print(f"[dim]← Transcribed: \"{transcription.text}\" (lang: {transcription.language})[/dim]")
+            if not self.config.translated_only:
+                console.print(f"[dim]← Transcribed: \"{transcription.text}\" (lang: {transcription.language})[/dim]")
 
             # Skip non-English/non-Japanese languages (strictly EN→JA translation)
             if transcription.language not in ("en", "ja"):
-                console.print(f"[yellow]⚠ Skipping non-EN/JA language: {transcription.language}[/yellow]")
+                if not self.config.translated_only:
+                    console.print(f"[yellow]⚠ Skipping non-EN/JA language: {transcription.language}[/yellow]")
                 return
 
             # HYBRID APPROACH: Show transcription immediately (no translation yet)
-            console.print("[dim]→ Showing immediate transcription...[/dim]")
-            self.output.update(transcription.text, "")
-            self._display_subtitle(transcription.text, "", transcription.language)
+            # Skip immediate display when translated_only is set
+            if not self.config.translated_only:
+                console.print("[dim]→ Showing immediate transcription...[/dim]")
+                self.output.update(transcription.text, "")
+                if self.g2_output:
+                    self.g2_output.update(transcription.text, "")
+                self._display_subtitle(transcription.text, "", transcription.language)
 
             # Determine source language
             source_lang = transcription.language
@@ -284,7 +328,8 @@ class Pipeline:
             if self._buffer_language and self._buffer_language != source_lang:
                 # Language changed, flush buffer first
                 if self._sentence_buffer:
-                    console.print("[dim]→ Processing buffered text (language change)...[/dim]")
+                    if not self.config.translated_only:
+                        console.print("[dim]→ Processing buffered text (language change)...[/dim]")
                     self._process_complete_sentence(self._sentence_buffer, self._buffer_language)
                 self._sentence_buffer = ""
 
@@ -298,21 +343,25 @@ class Pipeline:
             # Force flush if buffer is too long (prevent waiting forever)
             max_buffer_chars = 150  # ~2-3 sentences worth
             if len(self._sentence_buffer) > max_buffer_chars and not complete_text:
-                console.print(f"[dim]→ Buffer size limit reached ({len(self._sentence_buffer)} chars), forcing translation...[/dim]")
+                if not self.config.translated_only:
+                    console.print(f"[dim]→ Buffer size limit reached ({len(self._sentence_buffer)} chars), forcing translation...[/dim]")
                 self._process_complete_sentence(self._sentence_buffer, source_lang)
                 self._sentence_buffer = ""
             elif complete_text:
-                console.print(f"[dim]→ Complete sentence detected: \"{complete_text}\"[/dim]")
+                if not self.config.translated_only:
+                    console.print(f"[dim]→ Complete sentence detected: \"{complete_text}\"[/dim]")
                 self._process_complete_sentence(complete_text, source_lang)
                 self._sentence_buffer = partial_text
             else:
                 # Translate buffered partial text (progressive translation)
-                console.print(f"[dim]← Buffering partial: \"{self._sentence_buffer}\" ({len(self._sentence_buffer)} chars)[/dim]")
+                if not self.config.translated_only:
+                    console.print(f"[dim]← Buffering partial: \"{self._sentence_buffer}\" ({len(self._sentence_buffer)} chars)[/dim]")
 
-                # Skip progressive translation for SOV target languages (EN→JA)
+                # Skip progressive translation for SOV target languages (EN→JA, EN→KO, etc.)
                 # SOV languages need the verb at the end, so partial translation is unreliable
-                target_lang = "ja" if source_lang == "en" else "en"
-                is_sov_translation = (source_lang == "en" and target_lang == "ja")
+                target_lang = self.config.translator.target_lang
+                sov_languages = {"ja", "ko"}  # Japanese, Korean use SOV word order
+                is_sov_translation = (source_lang == "en" and target_lang in sov_languages)
 
                 # Only do progressive translation if buffer is substantial AND not translating to SOV
                 min_progressive_chars = 80  # ~1-2 sentences minimum for SOV
@@ -321,7 +370,8 @@ class Pipeline:
                     self.config.translator.enabled and
                     (not is_sov_translation or len(self._sentence_buffer) >= min_progressive_chars)):
 
-                    console.print(f"[dim]→ Translating partial buffer...[/dim]")
+                    if not self.config.translated_only:
+                        console.print(f"[dim]→ Translating partial buffer...[/dim]")
 
                     # Use context for partial translation too
                     context_text = self._build_translation_context(self._sentence_buffer)
@@ -338,11 +388,15 @@ class Pipeline:
                         self._sentence_buffer
                     )
 
-                    console.print(f"[dim]← Partial translation: \"{translated_partial}\"[/dim]")
+                    if not self.config.translated_only:
+                        console.print(f"[dim]← Partial translation: \"{translated_partial}\"[/dim]")
                     # Update output with partial translation
                     self.output.update(self._sentence_buffer, translated_partial)
+                    if self.g2_output:
+                        self.g2_output.update(self._sentence_buffer, translated_partial)
                 elif is_sov_translation:
-                    console.print(f"[dim]  (waiting for more context before translating to SOV language)[/dim]")
+                    if not self.config.translated_only:
+                        console.print(f"[dim]  (waiting for more context before translating to SOV language)[/dim]")
 
         except Exception as e:
             self._stats["errors"] += 1
@@ -357,16 +411,17 @@ class Pipeline:
             text: Complete sentence text.
             source_lang: Source language code.
         """
-        # Translate if enabled - STRICTLY English → Japanese only
+        # Translate if enabled
         if self.config.translator.enabled and source_lang == "en":
-            target_lang = "ja"
+            target_lang = self.config.translator.target_lang
 
             # Build context from recent translations
             context_text = self._build_translation_context(text)
 
-            console.print(f"[dim]→ Translating {source_lang} → {target_lang}...[/dim]")
-            if context_text and context_text != text:
-                console.print(f"[dim]  (with {len(self._translation_context)} sentences of context)[/dim]")
+            if not self.config.translated_only:
+                console.print(f"[dim]→ Translating {source_lang} → {target_lang}...[/dim]")
+                if context_text and context_text != text:
+                    console.print(f"[dim]  (with {len(self._translation_context)} sentences of context)[/dim]")
 
             translation = self.translator.translate(
                 context_text,  # Translate with context
@@ -377,19 +432,23 @@ class Pipeline:
 
             # Extract only the new sentence translation (context might translate multi-sentence)
             translated_text = self._extract_new_translation(translation.translated_text, text)
-            console.print(f"[dim]← Translated: \"{translated_text}\"[/dim]")
+            if not self.config.translated_only:
+                console.print(f"[dim]← Translated: \"{translated_text}\"[/dim]")
 
             # Update context history
             self._update_translation_context(text, translated_text)
         else:
             # Skip translation for Japanese or other languages
-            if source_lang != "en":
+            if source_lang != "en" and not self.config.translated_only:
                 console.print(f"[dim]← Skipping translation (source is {source_lang}, not English)[/dim]")
             translated_text = ""
 
         # Output
-        console.print("[dim]→ Updating output...[/dim]")
+        if not self.config.translated_only:
+            console.print("[dim]→ Updating output...[/dim]")
         self.output.update(text, translated_text)
+        if self.g2_output:
+            self.g2_output.update(text, translated_text)
 
         # Display in console
         self._display_subtitle(text, translated_text, source_lang)
@@ -408,12 +467,13 @@ class Pipeline:
         if not translated:
             return
 
-        # Display original with translation (English → Japanese)
+        # Display subtitle
         text = Text()
-        text.append(f"[{language}] ", style="dim")
-        text.append(original, style="white")
-        text.append("\n")
-        text.append("→ ", style="dim")
+        if not self.config.translated_only:
+            text.append(f"[{language}] ", style="dim")
+            text.append(original, style="white")
+            text.append("\n")
+            text.append("→ ", style="dim")
         text.append(translated, style="cyan bold")
         console.print(Panel(text, border_style="cyan", padding=(0, 1)))
         console.print()  # Add spacing
@@ -472,6 +532,13 @@ class Pipeline:
         # Start components
         console.print("[dim]→ Starting output servers...[/dim]")
         self.output.start()
+        if self.g2_output:
+            console.print("[dim]→ Starting G2 glasses output...[/dim]")
+            self.g2_output.start()
+            console.print()
+            console.print("[bold yellow]G2 glasses connected![/bold yellow]")
+            console.print("[yellow]Activate Even AI on your glasses, then press Enter to start...[/yellow]")
+            input()
         console.print("[dim]→ Starting audio capture...[/dim]")
         self.audio_capture.start()
 
@@ -512,6 +579,8 @@ class Pipeline:
 
         # Stop components
         self.audio_capture.stop()
+        if self.g2_output:
+            self.g2_output.stop()
         self.output.stop()
 
         # Wait for processing thread

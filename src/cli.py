@@ -67,6 +67,16 @@ def cli() -> None:
     default="whisper-cpp",
     help="Whisper backend (default: whisper-cpp for Apple Silicon)",
 )
+@click.option(
+    "--translated-only",
+    is_flag=True,
+    help="Only show translated text in console (hide original)",
+)
+@click.option(
+    "--audio-source",
+    type=click.Choice(["microphone", "omi"]),
+    help="Audio input source (default: from config)",
+)
 def run(
     config_path: Optional[Path],
     model: Optional[str],
@@ -75,6 +85,8 @@ def run(
     device: Optional[int],
     no_translate: bool,
     backend: str,
+    translated_only: bool,
+    audio_source: Optional[str],
 ) -> None:
     """Start the live translator.
 
@@ -114,16 +126,24 @@ def run(
         config.translator.enabled = False
     if backend:
         config.backend = backend
+    if translated_only:
+        config.translated_only = True
+    if audio_source:
+        config.audio_source = audio_source
 
     # Display configuration
     console.print()
     console.print("[bold]Configuration:[/bold]")
+    console.print(f"  Audio source: {config.audio_source}")
+    if config.audio_source == "omi":
+        console.print(f"  Omi MAC: {config.omi.mac_address or 'auto-discover'}")
+    else:
+        console.print(f"  Audio device: {config.audio.device or 'default'}")
     console.print(f"  Backend: {config.backend}")
     console.print(f"  Whisper model: {config.transcriber.model}")
     console.print(f"  Source language: {config.transcriber.language or 'auto-detect'}")
     console.print(f"  Target language: {config.translator.target_lang}")
     console.print(f"  Translation: {'enabled' if config.translator.enabled else 'disabled'}")
-    console.print(f"  Audio device: {config.audio.device or 'default'}")
     console.print()
 
     # Run pipeline
@@ -132,8 +152,27 @@ def run(
 
 
 @cli.command()
-def devices() -> None:
+@click.option(
+    "--ble",
+    is_flag=True,
+    help="Scan for BLE devices (Omi wearables)",
+)
+def devices(ble: bool) -> None:
     """List available audio input devices."""
+    if ble:
+        # Scan for BLE devices (Omi)
+        from .omi_input import list_omi_devices
+
+        console.print()
+        console.print("[bold]Scanning for BLE devices (Omi wearables)...[/bold]")
+        console.print()
+        list_omi_devices()
+        console.print()
+        console.print("[dim]Copy the MAC address to config.yaml under audio.omi.mac_address[/dim]")
+        console.print("[dim]Example: mac_address: \"XX:XX:XX:XX:XX:XX\"[/dim]")
+        return
+
+    # List microphone devices
     from .audio_capture import list_devices
 
     devices = list_devices()
